@@ -74,6 +74,8 @@ ClawsMailUndo *claws_mail_undo_new(void);
 void claws_mail_undo_register_set(ClawsMailUndo *undo, const char *name, ClawsMailUndoSet *set);
 void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer data, gchar *description);
 void claws_mail_undo_clear(ClawsMailUndo *undo);
+void claws_mail_undo_set_maxlen(ClawsMailUndo *undo, gint maxlen);
+gint claws_mail_undo_get_maxlen(ClawsMailUndo *undo);
 
 /* Debugging. These will disappear again */
 void claws_mail_undo_print(ClawsMailUndo *undo);

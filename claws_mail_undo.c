@@ -303,6 +303,18 @@ void claws_mail_undo_register_set(ClawsMailUndo *undo, const char *name, ClawsMa
   g_hash_table_insert(undo->method_hash, g_strdup(name), val);
 }
 
+void claws_mail_undo_set_maxlen(ClawsMailUndo *undo, gint maxlen)
+{
+  g_object_set(undo, "maxlen", (gint)maxlen, NULL);
+}
+
+gint claws_mail_undo_get_maxlen(ClawsMailUndo *undo)
+{
+  gint maxlen;
+  g_object_get(undo, "maxlen", &maxlen, NULL);
+  return maxlen;
+}
+
 void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer data, gchar *description)
 {
   ClawsMailUndoSet *set;

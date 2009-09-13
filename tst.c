@@ -6,19 +6,18 @@
 
 typedef struct _UndoDataTst1 UndoDataTst1;
 struct _UndoDataTst1 {
-  gpointer data;
 };
 
 void do_undo(gpointer data) {
-  g_print("do undo called");
+  g_print("do undo called\n");
 }
 
 void do_redo(gpointer data) {
-  g_print("do redo called");
+  g_print("do redo called\n");
 }
 
 void do_free(gpointer data) {
-  g_print("do free called");
+  g_print("do free called\n");
   g_free(data);
 }
 
@@ -44,6 +43,7 @@ int main (int argc, char *argv[])
   gtk_init(&argc, &argv);
 
   undo = claws_mail_undo_new();
+  claws_mail_undo_set_maxlen(undo, 2);
 
   set.do_undo = do_undo;
   set.do_redo = do_redo;
