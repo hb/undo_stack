@@ -313,7 +313,7 @@ void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer dat
     return;
   }
 
-  g_return_if_fail(undo && set_name && data);
+  g_return_if_fail(undo && set_name);
 
   if(undo->maxlen == 0)
     return;
@@ -321,6 +321,7 @@ void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer dat
   set = g_hash_table_lookup(undo->method_hash, set_name);
   g_return_if_fail(set);
 
+  entry = g_new0(UndoEntry, 1);
   entry->type = UNDO_ENTRY_DATA;
   entry->description = g_strdup(description);
   entry->set = set;
