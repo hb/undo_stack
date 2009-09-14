@@ -84,11 +84,6 @@ gboolean claws_mail_undo_can_redo(ClawsMailUndo *undo);
 GList* claws_mail_undo_get_undo_descriptions(ClawsMailUndo *undo);
 GList* claws_mail_undo_get_redo_descriptions(ClawsMailUndo *undo);
 
-/* Debugging. These will disappear again */
-void claws_mail_undo_print(ClawsMailUndo *undo);
-void claws_mail_undo_print_undo(ClawsMailUndo *undo);
-void claws_mail_undo_print_redo(ClawsMailUndo *undo);
-
 G_END_DECLS
 
 #endif /* UNDO_H */

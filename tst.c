@@ -94,11 +94,9 @@ int main (int argc, char *argv[])
   set.description = "Set description";
   claws_mail_undo_register_set(undo, UNDO_SET_NAME, &set);
 
-  claws_mail_undo_print(undo);
   add_entry(undo);
   add_entry_with_description(undo);
   add_entry(undo);
-  claws_mail_undo_print(undo);
 
   create_main_window(undo);
   gtk_main();
