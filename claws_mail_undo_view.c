@@ -37,6 +37,34 @@ enum {
   PROP_UNDO
 };
 
+#if 0
+static gboolean update_view_traverse_node(GNode *node, gpointer data)
+{
+  GtkTreeIter iter;
+  GtkTreeStore *store = data;
+
+  gtk_tree_store_append(store, &iter, node->parent);
+  gtk_tree_store_set(store, &iter, 0, node->data, -1);
+
+  return FALSE;
+}
+#endif
+
+static void update_view_add_node(GtkTreeStore *store, GNode *node, GtkTreeIter *parent_iter)
+{
+  GtkTreeIter iter;
+  guint n_children, ii;
+
+  gtk_tree_store_append(store, &iter, parent_iter);
+  gtk_tree_store_set(store, &iter, 0, node->data, -1);
+
+  n_children = g_node_n_children(node);
+  for(ii = 0; ii < n_children; ii++) {
+    GNode *child = g_node_nth_child(node, ii);
+    update_view_add_node(store, child, &iter);
+  }
+}
+
 static void update_view_with_stack(GtkWidget *view, GList *descriptions)
 {
   GtkTreeStore *store;
@@ -50,9 +78,8 @@ static void update_view_with_stack(GtkWidget *view, GList *descriptions)
   gtk_tree_store_clear(store);
 
   for(walk = descriptions; walk; walk = walk->next) {
-    GtkTreeIter iter;
-    gtk_tree_store_append(store, &iter, NULL);
-    gtk_tree_store_set(store, &iter, 0, walk->data, -1);
+    update_view_add_node(store, walk->data, NULL);
+    g_node_destroy(walk->data);
   }
   g_list_free(descriptions);
 }

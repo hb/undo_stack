@@ -396,7 +396,9 @@ gboolean claws_mail_undo_can_redo(ClawsMailUndo *undo)
 static GList* get_descriptions_from_stack(GList *stack)
 {
   GList *list, *walk;
+  GNode *node, *parent;
 
+  parent = NULL;
   list = NULL;
   for(walk = g_list_last(stack); walk; walk = walk->prev) {
     UndoEntry *entry;
@@ -408,18 +410,29 @@ static GList* get_descriptions_from_stack(GList *stack)
       desc = entry->set->description;
     else
       desc = "<no description available>";
-    list = g_list_prepend(list, desc);
+
+    if(entry->type == UNDO_ENTRY_GROUP_END)
+      parent = NULL;
+    else {
+      if(parent)
+        node = g_node_append_data(parent, desc);
+      else
+        node = g_node_new(desc);
+      list = g_list_prepend(list, node);
+      if(entry->type == UNDO_ENTRY_GROUP_START)
+        parent = node;
+    }
   }
   return list;
 }
 
-/* The returned list must be freed, but not the list elements */
+/* GList of GNodes. The list and the nodes must be freed, the data must not. */
 GList* claws_mail_undo_get_undo_descriptions(ClawsMailUndo *undo)
 {
   return get_descriptions_from_stack(undo->undo_stack);
 }
 
-/* The returned list must be freed, but not the list elements */
+/* GList of GNodes. The list and the nodes must be freed, the data must not. */
 GList* claws_mail_undo_get_redo_descriptions(ClawsMailUndo *undo)
 {
   return get_descriptions_from_stack(undo->redo_stack);
