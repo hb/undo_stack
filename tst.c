@@ -46,6 +46,7 @@ GtkWidget* create_main_window(ClawsMailUndo *undo)
   GtkWidget *view;
 
   win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  gtk_widget_set_size_request(win, 600, 600);
   g_signal_connect(G_OBJECT(win), "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
   vbox = gtk_vbox_new(FALSE, 0);
@@ -66,6 +67,14 @@ GtkWidget* create_main_window(ClawsMailUndo *undo)
   gtk_widget_set_sensitive(button, claws_mail_undo_can_redo(undo));
   g_signal_connect_swapped(G_OBJECT(button), "clicked", G_CALLBACK(claws_mail_undo_redo), undo);
   g_signal_connect_swapped(G_OBJECT(undo), "can-redo", G_CALLBACK(gtk_widget_set_sensitive), button);
+  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+
+  /* add buttons */
+  button = gtk_button_new_with_label("add");
+  g_signal_connect_swapped(G_OBJECT(button), "clicked", G_CALLBACK(add_entry), undo);
+  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+  button = gtk_button_new_with_label("add desc");
+  g_signal_connect_swapped(G_OBJECT(button), "clicked", G_CALLBACK(add_entry_with_description), undo);
   gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
 
   sep = gtk_hseparator_new();
