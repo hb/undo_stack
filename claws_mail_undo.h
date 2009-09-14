@@ -57,6 +57,7 @@ struct _ClawsMailUndoClass {
   /* Signals */
   guint signal_id_can_undo;
   guint signal_id_can_redo;
+  guint signal_id_changed;
 };
 
 GType claws_mail_undo_get_type(void);

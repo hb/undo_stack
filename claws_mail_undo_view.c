@@ -99,6 +99,7 @@ static void claws_mail_undo_view_set_property(GObject *object, guint property_id
       g_signal_connect_swapped(G_OBJECT(self->priv->redo_button), "clicked", G_CALLBACK(claws_mail_undo_redo), self->priv->undo);
       g_signal_connect_swapped(G_OBJECT(self->priv->undo), "can-redo", G_CALLBACK(gtk_widget_set_sensitive), self->priv->redo_button);
       gtk_widget_set_sensitive(GTK_WIDGET(self->priv->redo_button), claws_mail_undo_can_redo(self->priv->undo));
+      g_signal_connect_swapped(G_OBJECT(self->priv->undo), "changed", G_CALLBACK(update_list_displays), self);
       update_list_displays(self);
     }
     break;
@@ -155,6 +156,7 @@ static GtkWidget* create_list_display(ClawsMailUndoView *self, gboolean undo_sid
   GtkTreeViewColumn *column;
   GtkWidget *scrolledwin;
   gchar *title;
+  GtkTreeSelection *selection;
 
   vbox = gtk_vbox_new(FALSE, 0);
 
@@ -177,12 +179,15 @@ static GtkWidget* create_list_display(ClawsMailUndoView *self, gboolean undo_sid
 
   model = gtk_tree_store_new(1, G_TYPE_STRING);
   view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(model));
+  selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(view));
+  gtk_tree_selection_set_mode(selection, GTK_SELECTION_NONE);
   renderer = gtk_cell_renderer_text_new();
   if(undo_side)
     title = "Undo stack";
   else
     title = "Redo stack";
-  column = gtk_tree_view_column_new_with_attributes(title, renderer, 0, NULL);
+  column = gtk_tree_view_column_new_with_attributes(title, renderer, "text", 0, NULL);
+  gtk_tree_view_column_set_clickable(column, FALSE);
   gtk_tree_view_append_column(GTK_TREE_VIEW(view), column);
 
   gtk_container_add(GTK_CONTAINER(scrolledwin), view);

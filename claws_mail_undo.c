@@ -262,6 +262,17 @@ static void claws_mail_undo_class_init(ClawsMailUndoClass *klass)
           G_TYPE_NONE /* return_type */,
           1     /* n_params */,
           ptypes /* param_types */);
+  klass->signal_id_changed =
+    g_signal_newv("changed",
+          G_TYPE_FROM_CLASS(klass),
+          G_SIGNAL_RUN_LAST | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
+          NULL /* class closure */,
+          NULL /* accumulator */,
+          NULL /* accu_data */,
+          g_cclosure_marshal_VOID__VOID,
+          G_TYPE_NONE /* return_type */,
+          0     /* n_params */,
+          NULL /* param_types */);
 }
 
 static void destroy_undoset(gpointer data)
@@ -347,6 +358,7 @@ void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer dat
     if((undo->maxlen != -1) && (undo->len_undo > undo->maxlen))
       undo_entry_free_last(undo);
   }
+  g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
 }
 
 void claws_mail_undo_undo(ClawsMailUndo *undo)
