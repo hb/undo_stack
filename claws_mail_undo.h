@@ -76,6 +76,12 @@ void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer dat
 void claws_mail_undo_clear(ClawsMailUndo *undo);
 void claws_mail_undo_set_maxlen(ClawsMailUndo *undo, gint maxlen);
 gint claws_mail_undo_get_maxlen(ClawsMailUndo *undo);
+void claws_mail_undo_undo(ClawsMailUndo *undo);
+void claws_mail_undo_redo(ClawsMailUndo *undo);
+gboolean claws_mail_undo_can_undo(ClawsMailUndo *undo);
+gboolean claws_mail_undo_can_redo(ClawsMailUndo *undo);
+GList* claws_mail_undo_get_undo_descriptions(ClawsMailUndo *undo);
+GList* claws_mail_undo_get_redo_descriptions(ClawsMailUndo *undo);
 
 /* Debugging. These will disappear again */
 void claws_mail_undo_print(ClawsMailUndo *undo);

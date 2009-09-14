@@ -349,6 +349,70 @@ void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer dat
   }
 }
 
+void claws_mail_undo_undo(ClawsMailUndo *undo)
+{
+  /* TODO */
+  g_print("undo clicked\n");
+}
+
+void claws_mail_undo_redo(ClawsMailUndo *undo)
+{
+  /* TODO */
+  g_print("redo clicked\n");
+}
+
+gboolean claws_mail_undo_can_undo(ClawsMailUndo *undo)
+{
+  g_return_val_if_fail(CLAWS_MAIL_IS_UNDO(undo), FALSE);
+
+  if(undo->group_add_mode)
+    return FALSE;
+
+  return (undo->undo_stack != NULL);
+}
+
+gboolean claws_mail_undo_can_redo(ClawsMailUndo *undo)
+{
+  g_return_val_if_fail(CLAWS_MAIL_IS_UNDO(undo), FALSE);
+
+  if(undo->group_add_mode)
+    return FALSE;
+
+  return (undo->redo_stack != NULL);
+}
+
+static GList* get_descriptions_from_stack(GList *stack)
+{
+  GList *list, *walk;
+
+  list = NULL;
+  for(walk = g_list_last(stack); walk; walk = walk->prev) {
+    UndoEntry *entry;
+    gchar *desc;
+    entry = walk->data;
+    if(entry->description)
+      desc = entry->description;
+    else if(entry->set->description)
+      desc = entry->set->description;
+    else
+      desc = "<no description available>";
+    list = g_list_prepend(list, desc);
+  }
+  return list;
+}
+
+/* The returned list must be freed, but not the list elements */
+GList* claws_mail_undo_get_undo_descriptions(ClawsMailUndo *undo)
+{
+  return get_descriptions_from_stack(undo->undo_stack);
+}
+
+/* The returned list must be freed, but not the list elements */
+GList* claws_mail_undo_get_redo_descriptions(ClawsMailUndo *undo)
+{
+  return get_descriptions_from_stack(undo->redo_stack);
+}
+
 void claws_mail_undo_print(ClawsMailUndo *undo)
 {
   g_return_if_fail(CLAWS_MAIL_IS_UNDO(undo));
