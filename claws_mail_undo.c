@@ -204,10 +204,20 @@ static void undo_clear_redo(ClawsMailUndo *undo)
 
 void claws_mail_undo_clear(ClawsMailUndo *undo)
 {
+  gboolean something_changed;
+
   g_return_if_fail(CLAWS_MAIL_IS_UNDO(undo));
+
+  if(undo->undo_stack || undo->redo_stack)
+    something_changed = TRUE;
+  else
+    something_changed = FALSE;
 
   undo_clear_undo(undo);
   undo_clear_redo(undo);
+
+  if(something_changed)
+    g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
 }
 
 static void claws_mail_undo_finalize(GObject *object)
@@ -520,6 +530,20 @@ gboolean claws_mail_undo_can_redo(ClawsMailUndo *undo)
   return (undo->redo_stack != NULL);
 }
 
+static char* get_entry_description(UndoEntry *entry)
+{
+  gchar *desc;
+
+  if(entry->description)
+    desc = entry->description;
+  else if(entry->set && entry->set->description)
+    desc = entry->set->description;
+  else
+    desc = "<no description available>";
+  return desc;
+}
+
+
 static GList* get_descriptions_from_stack(GList *stack, gboolean is_undo)
 {
   GList *list, *walk;
@@ -542,12 +566,8 @@ static GList* get_descriptions_from_stack(GList *stack, gboolean is_undo)
     UndoEntry *entry;
     gchar *desc;
     entry = walk->data;
-    if(entry->description)
-      desc = entry->description;
-    else if(entry->set && entry->set->description)
-      desc = entry->set->description;
-    else
-      desc = "<no description available>";
+
+    desc = get_entry_description(entry);
 
     if(entry->type == group_end) {
       if(parents) {
@@ -644,4 +664,25 @@ void claws_mail_undo_end_group(ClawsMailUndo *undo)
   undo->undo_stack = g_list_prepend(undo->undo_stack, entry);
   if(undo->current_group_descriptions == NULL)
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
+}
+
+
+const gchar* claws_mail_undo_get_top_undo_description(ClawsMailUndo *undo)
+{
+  g_return_val_if_fail(CLAWS_MAIL_IS_UNDO(undo), NULL);
+
+  if(undo->undo_stack)
+    return get_entry_description(undo->undo_stack->data);
+  else
+    return NULL;
+}
+
+const gchar* claws_mail_undo_get_top_redo_description(ClawsMailUndo *undo)
+{
+  g_return_val_if_fail(CLAWS_MAIL_IS_UNDO(undo), NULL);
+
+  if(undo->redo_stack)
+    return get_entry_description(undo->redo_stack->data);
+  else
+    return NULL;
 }

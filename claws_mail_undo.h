@@ -85,6 +85,8 @@ GList* claws_mail_undo_get_undo_descriptions(ClawsMailUndo *undo);
 GList* claws_mail_undo_get_redo_descriptions(ClawsMailUndo *undo);
 void claws_mail_undo_start_group(ClawsMailUndo *undo, gchar *description);
 void claws_mail_undo_end_group(ClawsMailUndo *undo);
+const gchar* claws_mail_undo_get_top_undo_description(ClawsMailUndo *undo);
+const gchar* claws_mail_undo_get_top_redo_description(ClawsMailUndo *undo);
 
 G_END_DECLS
 
