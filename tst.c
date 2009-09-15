@@ -36,6 +36,11 @@ static void add_entry_with_description(ClawsMailUndo *undo)
   claws_mail_undo_add(undo, UNDO_SET_NAME, data, "jo man!");
 }
 
+static void start_group_with_description(ClawsMailUndo *undo)
+{
+  claws_mail_undo_start_group(undo, "group description");
+}
+
 GtkWidget* create_main_window(ClawsMailUndo *undo)
 {
   GtkWidget *win;
@@ -75,6 +80,12 @@ GtkWidget* create_main_window(ClawsMailUndo *undo)
   gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
   button = gtk_button_new_with_label("add desc");
   g_signal_connect_swapped(G_OBJECT(button), "clicked", G_CALLBACK(add_entry_with_description), undo);
+  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+  button = gtk_button_new_with_label("start group");
+  g_signal_connect_swapped(G_OBJECT(button), "clicked", G_CALLBACK(start_group_with_description), undo);
+  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+  button = gtk_button_new_with_label("end group");
+  g_signal_connect_swapped(G_OBJECT(button), "clicked", G_CALLBACK(claws_mail_undo_end_group), undo);
   gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
 
   sep = gtk_hseparator_new();

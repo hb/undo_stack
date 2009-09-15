@@ -61,7 +61,7 @@ static void undo_entry_free(ClawsMailUndo *undo, UndoEntry *entry)
   /* Call virutal functions for data entries */
   if(entry->type == UNDO_ENTRY_DATA) {
     g_return_if_fail(entry->set);
-    if(entry->set->do_free)
+    if(entry->set->do_free && entry->data)
       entry->set->do_free(entry->data);
   }
   g_free(entry->description);
@@ -326,15 +326,10 @@ gint claws_mail_undo_get_maxlen(ClawsMailUndo *undo)
   return maxlen;
 }
 
-void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer data, gchar *description)
+void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer data, const gchar *description)
 {
   ClawsMailUndoSet *set;
   UndoEntry *entry;
-
-  if(undo->group_add_mode) {
-    g_warning("Currently in group add mode. Cannot undo.\n");
-    return;
-  }
 
   g_return_if_fail(undo && set_name);
 
@@ -357,20 +352,42 @@ void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer dat
     undo_clear_redo(undo);
     if((undo->maxlen != -1) && (undo->len_undo > undo->maxlen))
       undo_entry_free_last(undo);
+    g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
   }
-  g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
 }
 
 void claws_mail_undo_undo(ClawsMailUndo *undo)
 {
+  if(undo->group_add_mode) {
+    g_warning("Currently in group add mode. Cannot undo.\n");
+    return;
+  }
+
+  if(!claws_mail_undo_can_undo(undo)) {
+    g_warning("Cannot undo.\n");
+    return;
+  }
+
   /* TODO */
   g_print("undo clicked\n");
+  g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);  
 }
 
 void claws_mail_undo_redo(ClawsMailUndo *undo)
 {
+  if(undo->group_add_mode) {
+    g_warning("Currently in group add mode. Cannot redo.\n");
+    return;
+  }
+
+  if(!claws_mail_undo_can_redo(undo)) {
+    g_warning("Cannot redo.\n");
+    return;
+  }
+
   /* TODO */
   g_print("redo clicked\n");
+  g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);  
 }
 
 gboolean claws_mail_undo_can_undo(ClawsMailUndo *undo)
@@ -400,7 +417,7 @@ static GList* get_descriptions_from_stack(GList *stack)
 
   parent = NULL;
   list = NULL;
-  for(walk = g_list_last(stack); walk; walk = walk->prev) {
+  for(walk = stack; walk; walk = walk->next) {
     UndoEntry *entry;
     gchar *desc;
     entry = walk->data;
@@ -411,16 +428,21 @@ static GList* get_descriptions_from_stack(GList *stack)
     else
       desc = "<no description available>";
 
-    if(entry->type == UNDO_ENTRY_GROUP_END)
+    if(entry->type == UNDO_ENTRY_GROUP_START) {
+      if(parent)
+        parent->data = desc;
       parent = NULL;
+    }
     else {
       if(parent)
         node = g_node_append_data(parent, desc);
-      else
+      else {
         node = g_node_new(desc);
-      list = g_list_prepend(list, node);
-      if(entry->type == UNDO_ENTRY_GROUP_START)
+        list = g_list_append(list, node);
+      }
+      if(entry->type == UNDO_ENTRY_GROUP_END) {
         parent = node;
+      }
     }
   }
   return list;
@@ -436,4 +458,67 @@ GList* claws_mail_undo_get_undo_descriptions(ClawsMailUndo *undo)
 GList* claws_mail_undo_get_redo_descriptions(ClawsMailUndo *undo)
 {
   return get_descriptions_from_stack(undo->redo_stack);
+}
+
+void claws_mail_undo_start_group(ClawsMailUndo *undo, const gchar *description)
+{
+  UndoEntry *entry;
+
+  g_return_if_fail(CLAWS_MAIL_IS_UNDO(undo));
+
+  if(undo->maxlen == 0)
+    return;
+
+  if(undo->group_add_mode) {
+    g_warning("Already in group add mode!\n");
+    return;
+  }
+
+  undo->group_add_mode = TRUE;
+  entry = g_new(UndoEntry,1);
+  entry->type = UNDO_ENTRY_GROUP_START;
+  entry->description = g_strdup(description);
+  entry->data = NULL;
+  undo->undo_stack = g_list_prepend(undo->undo_stack, entry);
+  undo_change_len_undo(undo, 1);
+  undo_clear_redo(undo);
+  if((undo->maxlen != -1) && (undo->len_undo > undo->maxlen))
+    undo_entry_free_last(undo);
+}
+
+void claws_mail_undo_end_group(ClawsMailUndo *undo)
+{
+  UndoEntry *entry;
+
+  g_return_if_fail(CLAWS_MAIL_IS_UNDO(undo));
+
+  if(undo->maxlen == 0)
+    return;
+
+  if(undo->group_add_mode == FALSE) {
+    g_warning("Not in group add mode!\n");
+    return;
+  }
+
+  undo->group_add_mode = FALSE;
+
+  /* Ignore empty group start - group end sequence */
+  if(undo->undo_stack) {
+    entry = undo->undo_stack->data;
+    if(entry->type == UNDO_ENTRY_GROUP_START) {
+      undo_entry_free(undo, entry);
+      undo->undo_stack = g_list_delete_link(undo->undo_stack, undo->undo_stack);
+      undo_change_len_undo(undo, -1);
+      g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
+      return;
+    }
+  }
+
+  undo->group_add_mode = FALSE;
+  entry = g_new(UndoEntry,1);
+  entry->type = UNDO_ENTRY_GROUP_END;
+  entry->description = NULL;
+  entry->data = NULL;
+  undo->undo_stack = g_list_prepend(undo->undo_stack, entry);  
+  g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
 }
