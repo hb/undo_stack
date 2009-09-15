@@ -410,13 +410,6 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
     } while((group_depth > 0) && entry);
     undo_change_len_undo(undo, -1);
 
-    /* last one must have been a group start. */
-    if(!entry) {
-      /* TODO: error handling, e.g. adding a START tag */
-      g_warning("Didn't find group start entry corresponding to group "
-		"end entry in undo stack\n");
-    }
-
     walk ? (walk = walk->prev) : (walk = g_list_last(undo->undo_stack));
     
     /* Remove all elements until (and including) walk from the undo stack */
@@ -438,6 +431,10 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
 
 void claws_mail_undo_redo(ClawsMailUndo *undo)
 {
+  UndoEntry *entry;
+
+  g_return_if_fail(CLAWS_MAIL_IS_UNDO(undo));
+
   if(undo->current_group_descriptions) {
     g_warning("Currently in group add mode. Cannot redo.\n");
     return;
@@ -448,9 +445,59 @@ void claws_mail_undo_redo(ClawsMailUndo *undo)
     return;
   }
 
-  /* TODO */
-  g_print("redo clicked\n");
-  g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);  
+  entry = (UndoEntry*)undo->redo_stack->data;
+
+  /* undo a single entry */
+  if(entry->type == UNDO_ENTRY_DATA) {
+
+    /* callback function */
+    if(entry->set && entry->set->do_undo)
+      entry->set->do_undo(entry->data);
+
+    /* stack management */
+    undo->undo_stack = g_list_prepend(undo->undo_stack, undo->redo_stack->data);
+    undo_change_len_redo(undo, -1);
+    undo->redo_stack = g_list_delete_link(undo->redo_stack,  undo->redo_stack);
+    undo_change_len_undo(undo, 1);
+    g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
+  }
+  /* Redo a group */
+  else if(entry->type == UNDO_ENTRY_GROUP_START) {
+    GList *old_start = undo->redo_stack;
+    GList *walk = undo->redo_stack;
+    gint group_depth = 0;
+
+    do {
+      if(entry->set && entry->set->do_redo)
+        entry->set->do_redo(entry->data);
+
+      if(entry->type == UNDO_ENTRY_GROUP_START)
+        group_depth++;
+      else if(entry->type == UNDO_ENTRY_GROUP_END)
+        group_depth--;
+
+      walk = walk->next;
+      walk ? (entry = walk->data) : (entry = NULL);
+    } while((group_depth > 0) && entry);
+    undo_change_len_redo(undo, -1);
+
+    walk ? (walk = walk->prev) : (walk = g_list_last(undo->redo_stack));
+
+    /* Remove all elements until (and including) walk from the undo stack */
+    undo->redo_stack = walk->next;
+    if(undo->redo_stack)
+      undo->redo_stack->prev = NULL;
+    walk->next = NULL;
+
+    /* Now old_start is a self-contained list that reached until next */
+    /* Reverse it and add it at the beginning of the undo list */
+    old_start = g_list_reverse(old_start);
+    undo->undo_stack = g_list_concat(old_start, undo->undo_stack);
+    undo_change_len_undo(undo, 1);
+    g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
+  }
+  else
+    g_warning("Unexpected entry in undo list: %d\n", entry->type);
 }
 
 gboolean claws_mail_undo_can_undo(ClawsMailUndo *undo)
