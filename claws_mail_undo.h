@@ -44,7 +44,7 @@ struct _ClawsMailUndo {
   GList *redo_stack;
   gint len_undo;
   gint len_redo;
-  guint current_group_depth;
+  GSList *current_group_descriptions;
   GHashTable *method_hash;
 
   /* properties */
@@ -83,7 +83,7 @@ gboolean claws_mail_undo_can_undo(ClawsMailUndo *undo);
 gboolean claws_mail_undo_can_redo(ClawsMailUndo *undo);
 GList* claws_mail_undo_get_undo_descriptions(ClawsMailUndo *undo);
 GList* claws_mail_undo_get_redo_descriptions(ClawsMailUndo *undo);
-void claws_mail_undo_start_group(ClawsMailUndo *undo, const gchar *description);
+void claws_mail_undo_start_group(ClawsMailUndo *undo, gchar *description);
 void claws_mail_undo_end_group(ClawsMailUndo *undo);
 
 G_END_DECLS
