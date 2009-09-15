@@ -44,7 +44,7 @@ struct _ClawsMailUndo {
   GList *redo_stack;
   gint len_undo;
   gint len_redo;
-  gboolean group_add_mode;
+  guint current_group_depth;
   GHashTable *method_hash;
 
   /* properties */

@@ -145,7 +145,7 @@ static void claws_mail_undo_set_property(GObject *object, guint property_id, con
 {
   ClawsMailUndo *self = CLAWS_MAIL_UNDO(object);
 
-  if(self->group_add_mode) {
+  if(self->current_group_depth) {
     g_warning("Currently in group add mode. Cannot set properties\n");
     return;
   }
@@ -288,7 +288,7 @@ static void claws_mail_undo_init(ClawsMailUndo *self)
   self->redo_stack = NULL;
   self->len_undo = 0;
   self->len_redo = 0;
-  self->group_add_mode = FALSE;
+  self->current_group_depth = 0;
   self->maxlen = -1;
   self->method_hash = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, destroy_undoset);
 }
@@ -347,7 +347,7 @@ void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer dat
 
   undo->undo_stack = g_list_prepend(undo->undo_stack, entry);
 
-  if(undo->group_add_mode == FALSE) {
+  if(undo->current_group_depth == 0) {
     undo_change_len_undo(undo, 1);
     undo_clear_redo(undo);
     if((undo->maxlen != -1) && (undo->len_undo > undo->maxlen))
@@ -358,7 +358,7 @@ void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer dat
 
 void claws_mail_undo_undo(ClawsMailUndo *undo)
 {
-  if(undo->group_add_mode) {
+  if(undo->current_group_depth) {
     g_warning("Currently in group add mode. Cannot undo.\n");
     return;
   }
@@ -375,7 +375,7 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
 
 void claws_mail_undo_redo(ClawsMailUndo *undo)
 {
-  if(undo->group_add_mode) {
+  if(undo->current_group_depth) {
     g_warning("Currently in group add mode. Cannot redo.\n");
     return;
   }
@@ -394,7 +394,7 @@ gboolean claws_mail_undo_can_undo(ClawsMailUndo *undo)
 {
   g_return_val_if_fail(CLAWS_MAIL_IS_UNDO(undo), FALSE);
 
-  if(undo->group_add_mode)
+  if(undo->current_group_depth)
     return FALSE;
 
   return (undo->undo_stack != NULL);
@@ -404,7 +404,7 @@ gboolean claws_mail_undo_can_redo(ClawsMailUndo *undo)
 {
   g_return_val_if_fail(CLAWS_MAIL_IS_UNDO(undo), FALSE);
 
-  if(undo->group_add_mode)
+  if(undo->current_group_depth)
     return FALSE;
 
   return (undo->redo_stack != NULL);
@@ -413,9 +413,10 @@ gboolean claws_mail_undo_can_redo(ClawsMailUndo *undo)
 static GList* get_descriptions_from_stack(GList *stack)
 {
   GList *list, *walk;
-  GNode *node, *parent;
+  GNode *node;
+  GList *parents;
 
-  parent = NULL;
+  parents = NULL;
   list = NULL;
   for(walk = stack; walk; walk = walk->next) {
     UndoEntry *entry;
@@ -429,22 +430,24 @@ static GList* get_descriptions_from_stack(GList *stack)
       desc = "<no description available>";
 
     if(entry->type == UNDO_ENTRY_GROUP_START) {
-      if(parent)
-        parent->data = desc;
-      parent = NULL;
+      if(parents) {
+        ((GNode*)parents->data)->data = desc;
+        parents = g_list_delete_link(parents, parents);
+      }
     }
     else {
-      if(parent)
-        node = g_node_append_data(parent, desc);
+      if(parents)
+        node = g_node_append_data(parents->data, desc);
       else {
         node = g_node_new(desc);
         list = g_list_append(list, node);
       }
       if(entry->type == UNDO_ENTRY_GROUP_END) {
-        parent = node;
+        parents = g_list_prepend(parents, node);
       }
     }
   }
+  g_list_free(parents);
   return list;
 }
 
@@ -469,12 +472,7 @@ void claws_mail_undo_start_group(ClawsMailUndo *undo, const gchar *description)
   if(undo->maxlen == 0)
     return;
 
-  if(undo->group_add_mode) {
-    g_warning("Already in group add mode!\n");
-    return;
-  }
-
-  undo->group_add_mode = TRUE;
+  undo->current_group_depth++;
   entry = g_new(UndoEntry,1);
   entry->type = UNDO_ENTRY_GROUP_START;
   entry->description = g_strdup(description);
@@ -495,12 +493,12 @@ void claws_mail_undo_end_group(ClawsMailUndo *undo)
   if(undo->maxlen == 0)
     return;
 
-  if(undo->group_add_mode == FALSE) {
+  if(undo->current_group_depth == 0) {
     g_warning("Not in group add mode!\n");
     return;
   }
 
-  undo->group_add_mode = FALSE;
+  undo->current_group_depth--;
 
   /* Ignore empty group start - group end sequence */
   if(undo->undo_stack) {
@@ -514,11 +512,11 @@ void claws_mail_undo_end_group(ClawsMailUndo *undo)
     }
   }
 
-  undo->group_add_mode = FALSE;
   entry = g_new(UndoEntry,1);
   entry->type = UNDO_ENTRY_GROUP_END;
   entry->description = NULL;
   entry->data = NULL;
   undo->undo_stack = g_list_prepend(undo->undo_stack, entry);  
-  g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
+  if(undo->current_group_depth == 0)
+    g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
 }
