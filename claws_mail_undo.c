@@ -401,8 +401,10 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
       undo->redo_stack = g_list_prepend(undo->redo_stack,undo->undo_stack->data);
       undo_change_len_redo(undo, 1);
     }
-    else
+    else {
       undo_entry_free(undo->undo_stack->data);
+      g_warning("undo operation failed");
+    }
     undo->undo_stack = g_list_delete_link(undo->undo_stack, undo->undo_stack);
     undo_change_len_undo(undo, -1);
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);  
@@ -412,13 +414,23 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
     GList *old_start = undo->undo_stack;
     GList *walk = undo->undo_stack;
     gint group_depth = 0;
+    GList *links_to_delete = NULL;
+    GList *ld = NULL;
 
     do {
-      gboolean success; // TODO
+      gboolean success;
 
       success = TRUE;
       if(entry->set && entry->set->do_undo)
         success = entry->set->do_undo(entry->data);
+
+      if(!success) {
+        g_warning("undo operation failed");
+        /* cut entry out */
+        if(entry->set->do_free)
+          entry->set->do_free(entry->data);
+        links_to_delete = g_list_prepend(links_to_delete, walk);
+      }
 
       if(entry->type == UNDO_ENTRY_GROUP_END)
         group_depth++;
@@ -432,6 +444,14 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
 
     walk ? (walk = walk->prev) : (walk = g_list_last(undo->undo_stack));
     
+    /* make sure walk doesn't point on a broken link */
+    while(g_list_find(links_to_delete, walk))
+      walk = walk->next;
+
+    /* get rid of all elements that caused errors */
+    for(ld = links_to_delete; ld; ld = ld->next)
+      undo->undo_stack = g_list_delete_link(undo->undo_stack, ld->data);
+
     /* Remove all elements until (and including) walk from the undo stack */
     undo->undo_stack = walk->next;
     if(undo->undo_stack)
@@ -439,10 +459,20 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
     walk->next = NULL;
 
     /* Now old_start is a self-contained list that reached until next */
-    /* Reverse it and add it at the beginning of the redo list */
-    old_start = g_list_reverse(old_start);
-    undo->redo_stack = g_list_concat(old_start, undo->redo_stack);
-    undo_change_len_redo(undo, 1);
+    /* Make sure it has at least one data element */
+    for(walk = old_start; walk; walk = walk->next) {
+      UndoEntry *entry = walk->data;
+      if(entry->type == UNDO_ENTRY_DATA)
+        break;
+    }
+    if(walk) {
+      /* Reverse it and add it at the beginning of the redo list */
+      old_start = g_list_reverse(old_start);
+      undo->redo_stack = g_list_concat(old_start, undo->redo_stack);
+      undo_change_len_redo(undo, 1);
+    }
+    else
+      g_list_free(old_start);
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);  
   } /* end of "undo a group" */
   else
@@ -481,8 +511,10 @@ void claws_mail_undo_redo(ClawsMailUndo *undo)
       undo->undo_stack = g_list_prepend(undo->undo_stack, undo->redo_stack->data);
       undo_change_len_undo(undo, 1);
     }
-    else
+    else {
+      g_warning("redo operation failed");
       undo_entry_free(undo->redo_stack->data);
+    }
     undo->redo_stack = g_list_delete_link(undo->redo_stack,  undo->redo_stack);
     undo_change_len_redo(undo, -1);
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
@@ -492,13 +524,23 @@ void claws_mail_undo_redo(ClawsMailUndo *undo)
     GList *old_start = undo->redo_stack;
     GList *walk = undo->redo_stack;
     gint group_depth = 0;
+    GList *links_to_delete = NULL;
+    GList *ld = NULL;
 
     do {
-      gboolean success; // TODO
+      gboolean success;
 
       success = TRUE;
       if(entry->set && entry->set->do_redo)
         success = entry->set->do_redo(entry->data);
+
+      if(!success) {
+        g_warning("redo operation failed");
+        /* cut entry out */
+        if(entry->set->do_free)
+          entry->set->do_free(entry->data);
+        links_to_delete = g_list_prepend(links_to_delete, walk);
+      }
 
       if(entry->type == UNDO_ENTRY_GROUP_START)
         group_depth++;
@@ -512,6 +554,14 @@ void claws_mail_undo_redo(ClawsMailUndo *undo)
 
     walk ? (walk = walk->prev) : (walk = g_list_last(undo->redo_stack));
 
+    /* make sure walk doesn't point on a broken link */
+    while(g_list_find(links_to_delete, walk))
+      walk = walk->next;
+
+    /* get rid of all elements that caused errors */
+    for(ld = links_to_delete; ld; ld = ld->next)
+      undo->redo_stack = g_list_delete_link(undo->redo_stack, ld->data);
+
     /* Remove all elements until (and including) walk from the undo stack */
     undo->redo_stack = walk->next;
     if(undo->redo_stack)
@@ -519,10 +569,20 @@ void claws_mail_undo_redo(ClawsMailUndo *undo)
     walk->next = NULL;
 
     /* Now old_start is a self-contained list that reached until next */
-    /* Reverse it and add it at the beginning of the undo list */
-    old_start = g_list_reverse(old_start);
-    undo->undo_stack = g_list_concat(old_start, undo->undo_stack);
-    undo_change_len_undo(undo, 1);
+    /* Make sure it has at least one data element */
+    for(walk = old_start; walk; walk = walk->next) {
+      UndoEntry *entry = walk->data;
+      if(entry->type == UNDO_ENTRY_DATA)
+        break;
+    }
+    if(walk) {
+      /* Reverse it and add it at the beginning of the redo list */
+      old_start = g_list_reverse(old_start);
+      undo->undo_stack = g_list_concat(old_start, undo->undo_stack);
+      undo_change_len_undo(undo, 1);
+    }
+    else
+      g_list_free(old_start);
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
   }
   else
@@ -637,8 +697,6 @@ void claws_mail_undo_start_group(ClawsMailUndo *undo, gchar *description)
   entry->data = NULL;
   entry->set = NULL;
   undo->undo_stack = g_list_prepend(undo->undo_stack, entry);
-  if(undo->current_group_descriptions == NULL)
-    undo_change_len_undo(undo, 1);
   undo->current_group_descriptions = g_slist_prepend(undo->current_group_descriptions, description);
   undo_clear_redo(undo);
   if((undo->maxlen != -1) && (undo->len_undo > undo->maxlen))
@@ -662,6 +720,9 @@ void claws_mail_undo_end_group(ClawsMailUndo *undo)
 
   desc = undo->current_group_descriptions->data;
   undo->current_group_descriptions = g_slist_delete_link(undo->current_group_descriptions, undo->current_group_descriptions);
+
+  if(!undo->current_group_descriptions)
+    undo_change_len_undo(undo, 1);
 
   /* Ignore empty group start - group end sequence */
   if(undo->undo_stack) {

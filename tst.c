@@ -3,22 +3,35 @@
 #include "claws_mail_undo.h"
 #include "claws_mail_undo_view.h"
 
-#define UNDO_SET_NAME "tst1"
+#define UNDO_SET_NAME_OK "tst1"
+#define UNDO_SET_NAME_FAIL "tst2"
 
 typedef struct _UndoDataTst1 UndoDataTst1;
 struct _UndoDataTst1 {
 };
 
-gboolean do_undo(gpointer data)
+gboolean do_undo_ok(gpointer data)
 {
   g_print("do undo called\n");
   return TRUE;
 }
 
-gboolean do_redo(gpointer data)
+gboolean do_redo_ok(gpointer data)
 {
   g_print("do redo called\n");
   return TRUE;
+}
+
+gboolean do_undo_fail(gpointer data)
+{
+  g_print("do undo called\n");
+  return FALSE;
+}
+
+gboolean do_redo_fail(gpointer data)
+{
+  g_print("do redo called\n");
+  return FALSE;
 }
 
 void do_free(gpointer data) {
@@ -30,14 +43,14 @@ static void add_entry(ClawsMailUndo *undo)
 {
   UndoDataTst1 *data;
   data = g_new0(UndoDataTst1, 1);
-  claws_mail_undo_add(undo, UNDO_SET_NAME, data, NULL);
+  claws_mail_undo_add(undo, UNDO_SET_NAME_OK, data, NULL);
 }
 
 static void add_entry_with_description(ClawsMailUndo *undo)
 {
   UndoDataTst1 *data;
   data = g_new0(UndoDataTst1, 1);
-  claws_mail_undo_add(undo, UNDO_SET_NAME, data, "jo man!");
+  claws_mail_undo_add(undo, UNDO_SET_NAME_FAIL, data, "jo man!");
 }
 
 static void start_group_with_description(ClawsMailUndo *undo)
@@ -116,18 +129,24 @@ GtkWidget* create_main_window(ClawsMailUndo *undo)
 int main (int argc, char *argv[])
 {
   ClawsMailUndo *undo;
-  ClawsMailUndoSet set;
+  ClawsMailUndoSet set_ok, set_fail;
 
   gtk_init(&argc, &argv);
 
   undo = claws_mail_undo_new();
   claws_mail_undo_set_maxlen(undo, 10);
 
-  set.do_undo = do_undo;
-  set.do_redo = do_redo;
-  set.do_free = do_free;
-  set.description = "Set description";
-  claws_mail_undo_register_set(undo, UNDO_SET_NAME, &set);
+  set_ok.do_undo = do_undo_ok;
+  set_ok.do_redo = do_redo_ok;
+  set_ok.do_free = do_free;
+  set_ok.description = "OK Set description";
+  claws_mail_undo_register_set(undo, UNDO_SET_NAME_OK, &set_ok);
+
+  set_fail.do_undo = do_undo_ok;
+  set_fail.do_redo = do_redo_fail;
+  set_fail.do_free = do_free;
+  set_fail.description = "FAIL Set description";
+  claws_mail_undo_register_set(undo, UNDO_SET_NAME_FAIL, &set_fail);
 
   add_entry(undo);
   add_entry_with_description(undo);
