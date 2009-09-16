@@ -208,6 +208,11 @@ void claws_mail_undo_clear(ClawsMailUndo *undo)
 
   g_return_if_fail(CLAWS_MAIL_IS_UNDO(undo));
 
+  if(undo->current_group_descriptions) {
+    g_warning("Currently in group add mode. Cannot clear.");
+    return;
+  }
+
   if(undo->undo_stack || undo->redo_stack)
     something_changed = TRUE;
   else
@@ -375,12 +380,12 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
   g_return_if_fail(CLAWS_MAIL_IS_UNDO(undo));
 
   if(undo->current_group_descriptions) {
-    g_warning("Currently in group add mode. Cannot undo.\n");
+    g_warning("Currently in group add mode. Cannot undo.");
     return;
   }
 
   if(!claws_mail_undo_can_undo(undo)) {
-    g_warning("Cannot undo.\n");
+    g_warning("Cannot undo.");
     return;
   }
 
@@ -476,7 +481,7 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);  
   } /* end of "undo a group" */
   else
-    g_warning("Unexpected entry in undo list: %d\n", entry->type);
+    g_warning("Unexpected entry in undo list: %d", entry->type);
 }
 
 void claws_mail_undo_redo(ClawsMailUndo *undo)
@@ -486,12 +491,12 @@ void claws_mail_undo_redo(ClawsMailUndo *undo)
   g_return_if_fail(CLAWS_MAIL_IS_UNDO(undo));
 
   if(undo->current_group_descriptions) {
-    g_warning("Currently in group add mode. Cannot redo.\n");
+    g_warning("Currently in group add mode. Cannot redo.");
     return;
   }
 
   if(!claws_mail_undo_can_redo(undo)) {
-    g_warning("Cannot redo.\n");
+    g_warning("Cannot redo.");
     return;
   }
 
@@ -586,7 +591,7 @@ void claws_mail_undo_redo(ClawsMailUndo *undo)
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
   }
   else
-    g_warning("Unexpected entry in undo list: %d\n", entry->type);
+    g_warning("Unexpected entry in undo list: %d", entry->type);
 }
 
 gboolean claws_mail_undo_can_undo(ClawsMailUndo *undo)
@@ -714,7 +719,7 @@ void claws_mail_undo_end_group(ClawsMailUndo *undo)
     return;
 
   if(undo->current_group_descriptions == NULL) {
-    g_warning("Not in group add mode!\n");
+    g_warning("Not in group add mode!");
     return;
   }
 
