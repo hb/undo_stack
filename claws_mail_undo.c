@@ -56,7 +56,7 @@ static void claws_mail_undo_get_property(GObject *object, guint property_id, GVa
 }
 
 /* Free a undo entry itself and all members. */
-static void undo_entry_free(ClawsMailUndo *undo, UndoEntry *entry)
+static void undo_entry_free(UndoEntry *entry)
 {
   /* Call virutal functions for data entries */
   if(entry->type == UNDO_ENTRY_DATA) {
@@ -109,7 +109,7 @@ static void undo_entry_free_last(ClawsMailUndo *undo)
 
   /* Free a single entry */
   if(entry->type == UNDO_ENTRY_DATA) {
-    undo_entry_free(undo, entry);
+    undo_entry_free(entry);
     undo->undo_stack = g_list_delete_link(undo->undo_stack, last);
   }
   /* Free a group */
@@ -118,7 +118,7 @@ static void undo_entry_free_last(ClawsMailUndo *undo)
     GList *walk = last->prev;
     walk ? (entry = (UndoEntry*)walk->data) : (entry = NULL);
     while(entry && entry->type == UNDO_ENTRY_DATA) {
-      undo_entry_free(undo, entry);
+      undo_entry_free(entry);
       walk = walk->prev;
       walk ? (entry = (UndoEntry*)walk->data) : (entry = NULL);
     }
@@ -179,7 +179,7 @@ static void undo_clear_undo(ClawsMailUndo *undo)
   for(walk = undo->undo_stack; walk; walk = g_list_next(walk)) {
     UndoEntry *entry = walk->data;
     if(entry)
-      undo_entry_free(undo, entry);
+      undo_entry_free(entry);
   }
   g_list_free(undo->undo_stack);
   undo->undo_stack = NULL;
@@ -195,7 +195,7 @@ static void undo_clear_redo(ClawsMailUndo *undo)
   for(walk = undo->redo_stack; walk; walk = g_list_next(walk)) {
     UndoEntry *entry = walk->data;
     if(entry)
-      undo_entry_free(undo, entry);
+      undo_entry_free(entry);
   }
   g_list_free(undo->redo_stack);
   undo->redo_stack = NULL;
@@ -388,14 +388,21 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
 
   /* undo a single entry */
   if(entry->type == UNDO_ENTRY_DATA) {
+    gboolean success;
+
+    success = TRUE;
 
     /* callabck function */
     if(entry->set && entry->set->do_undo)
-      entry->set->do_undo(entry->data);
+      success = entry->set->do_undo(entry->data);
     
     /* stack management */
-    undo->redo_stack = g_list_prepend(undo->redo_stack,undo->undo_stack->data);
-    undo_change_len_redo(undo, 1);
+    if(success) {
+      undo->redo_stack = g_list_prepend(undo->redo_stack,undo->undo_stack->data);
+      undo_change_len_redo(undo, 1);
+    }
+    else
+      undo_entry_free(undo->undo_stack->data);
     undo->undo_stack = g_list_delete_link(undo->undo_stack, undo->undo_stack);
     undo_change_len_undo(undo, -1);
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);  
@@ -407,8 +414,11 @@ void claws_mail_undo_undo(ClawsMailUndo *undo)
     gint group_depth = 0;
 
     do {
+      gboolean success; // TODO
+
+      success = TRUE;
       if(entry->set && entry->set->do_undo)
-        entry->set->do_undo(entry->data);
+        success = entry->set->do_undo(entry->data);
 
       if(entry->type == UNDO_ENTRY_GROUP_END)
         group_depth++;
@@ -457,29 +467,38 @@ void claws_mail_undo_redo(ClawsMailUndo *undo)
 
   entry = (UndoEntry*)undo->redo_stack->data;
 
-  /* undo a single entry */
+  /* redo a single entry */
   if(entry->type == UNDO_ENTRY_DATA) {
+    gboolean success;
 
+    success = TRUE;
     /* callback function */
-    if(entry->set && entry->set->do_undo)
-      entry->set->do_undo(entry->data);
+    if(entry->set && entry->set->do_redo)
+      success = entry->set->do_redo(entry->data);
 
     /* stack management */
-    undo->undo_stack = g_list_prepend(undo->undo_stack, undo->redo_stack->data);
-    undo_change_len_redo(undo, -1);
+    if(success) {
+      undo->undo_stack = g_list_prepend(undo->undo_stack, undo->redo_stack->data);
+      undo_change_len_undo(undo, 1);
+    }
+    else
+      undo_entry_free(undo->redo_stack->data);
     undo->redo_stack = g_list_delete_link(undo->redo_stack,  undo->redo_stack);
-    undo_change_len_undo(undo, 1);
+    undo_change_len_redo(undo, -1);
     g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);
   }
-  /* Redo a group */
+  /* redo a group */
   else if(entry->type == UNDO_ENTRY_GROUP_START) {
     GList *old_start = undo->redo_stack;
     GList *walk = undo->redo_stack;
     gint group_depth = 0;
 
     do {
+      gboolean success; // TODO
+
+      success = TRUE;
       if(entry->set && entry->set->do_redo)
-        entry->set->do_redo(entry->data);
+        success = entry->set->do_redo(entry->data);
 
       if(entry->type == UNDO_ENTRY_GROUP_START)
         group_depth++;
@@ -648,7 +667,7 @@ void claws_mail_undo_end_group(ClawsMailUndo *undo)
   if(undo->undo_stack) {
     entry = undo->undo_stack->data;
     if(entry->type == UNDO_ENTRY_GROUP_START) {
-      undo_entry_free(undo, entry);
+      undo_entry_free(entry);
       undo->undo_stack = g_list_delete_link(undo->undo_stack, undo->undo_stack);
       undo_change_len_undo(undo, -1);
       g_signal_emit(undo, CLAWS_MAIL_UNDO_GET_CLASS(undo)->signal_id_changed, 0);

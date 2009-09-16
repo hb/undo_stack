@@ -55,6 +55,7 @@ struct _ClawsMailUndoViewClass
 GType claws_mail_undo_view_get_type(void);
 
 GtkWidget* claws_mail_undo_view_new(ClawsMailUndo *undo);
+void claws_mail_undo_view_show_clear_button(ClawsMailUndoView *view, gboolean show);
 
 G_END_DECLS
 

@@ -65,8 +65,8 @@ GType claws_mail_undo_get_type(void);
 typedef struct _ClawsMailUndoSet ClawsMailUndoSet;
 struct _ClawsMailUndoSet {
   gchar *description;
-  void (*do_undo)(gpointer);
-  void (*do_redo)(gpointer);
+  gboolean (*do_undo)(gpointer);
+  gboolean (*do_redo)(gpointer);
   void (*do_free)(gpointer);
 };
 

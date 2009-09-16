@@ -26,6 +26,7 @@ struct _ClawsMailUndoViewPrivate
   ClawsMailUndo *undo;
   GtkWidget *undo_button;
   GtkWidget *redo_button;
+  GtkWidget *clear_button;
 
   GtkWidget *undo_view;
   GtkWidget *redo_view;
@@ -90,6 +91,8 @@ static void update_list_displays(ClawsMailUndoView *self)
 
   update_view_with_stack(self->priv->undo_view, claws_mail_undo_get_undo_descriptions(self->priv->undo));
   update_view_with_stack(self->priv->redo_view, claws_mail_undo_get_redo_descriptions(self->priv->undo));
+  
+  gtk_widget_set_sensitive(self->priv->clear_button, claws_mail_undo_can_undo(self->priv->undo) || claws_mail_undo_can_redo(self->priv->undo));
 }
 
 static void claws_mail_undo_view_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
@@ -122,11 +125,17 @@ static void claws_mail_undo_view_set_property(GObject *object, guint property_id
       g_object_ref(self->priv->undo);
       g_signal_connect_swapped(G_OBJECT(self->priv->undo_button), "clicked", G_CALLBACK(claws_mail_undo_undo), self->priv->undo);
       g_signal_connect_swapped(G_OBJECT(self->priv->undo), "can-undo", G_CALLBACK(gtk_widget_set_sensitive), self->priv->undo_button);
-      gtk_widget_set_sensitive(GTK_WIDGET(self->priv->undo_button), claws_mail_undo_can_undo(self->priv->undo));
+      gtk_widget_set_sensitive(self->priv->undo_button, claws_mail_undo_can_undo(self->priv->undo));
+
       g_signal_connect_swapped(G_OBJECT(self->priv->redo_button), "clicked", G_CALLBACK(claws_mail_undo_redo), self->priv->undo);
       g_signal_connect_swapped(G_OBJECT(self->priv->undo), "can-redo", G_CALLBACK(gtk_widget_set_sensitive), self->priv->redo_button);
-      gtk_widget_set_sensitive(GTK_WIDGET(self->priv->redo_button), claws_mail_undo_can_redo(self->priv->undo));
+      gtk_widget_set_sensitive(self->priv->redo_button, claws_mail_undo_can_redo(self->priv->undo));
+
+      g_signal_connect_swapped(G_OBJECT(self->priv->clear_button), "clicked", G_CALLBACK(claws_mail_undo_clear), self->priv->undo);
+      gtk_widget_set_sensitive(self->priv->clear_button, claws_mail_undo_can_undo(self->priv->undo) || claws_mail_undo_can_redo(self->priv->undo));
+
       g_signal_connect_swapped(G_OBJECT(self->priv->undo), "changed", G_CALLBACK(update_list_displays), self);
+
       update_list_displays(self);
     }
     break;
@@ -175,7 +184,6 @@ static void claws_mail_undo_view_class_init(ClawsMailUndoViewClass *klass)
 
 static GtkWidget* create_list_display(ClawsMailUndoView *self, gboolean undo_side)
 {
-  GtkWidget *button;
   GtkWidget *vbox;
   GtkTreeStore *model;
   GtkWidget *view;
@@ -186,18 +194,6 @@ static GtkWidget* create_list_display(ClawsMailUndoView *self, gboolean undo_sid
   GtkTreeSelection *selection;
 
   vbox = gtk_vbox_new(FALSE, 0);
-
-  /* buttons */
-  if(undo_side) {
-    button = gtk_button_new_from_stock(GTK_STOCK_UNDO);
-    self->priv->undo_button = button;
-  }
-  else {
-    button = gtk_button_new_from_stock(GTK_STOCK_REDO);
-    self->priv->redo_button = button;
-  }
-  gtk_widget_set_sensitive(button, FALSE);
-  gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 0);
 
   /* scrolled window */
   scrolledwin = gtk_scrolled_window_new(NULL, NULL);
@@ -229,6 +225,7 @@ static GtkWidget* create_list_display(ClawsMailUndoView *self, gboolean undo_sid
 
 static void claws_mail_undo_view_init(ClawsMailUndoView *self)
 {
+  GtkWidget *hbox;
   GtkWidget *paned;
   GtkWidget *list_display;
 
@@ -237,9 +234,30 @@ static void claws_mail_undo_view_init(ClawsMailUndoView *self)
   self->priv->undo = NULL;
   self->priv->undo_button = NULL;
   self->priv->redo_button = NULL;
+  self->priv->clear_button = NULL;
   self->priv->undo_view = NULL;
   self->priv->redo_view = NULL;
 
+  /* buttons */
+  hbox = gtk_hbox_new(FALSE, 4);
+
+  self->priv->undo_button = gtk_button_new_from_stock(GTK_STOCK_UNDO);
+  gtk_box_pack_start(GTK_BOX(hbox), self->priv->undo_button, FALSE, FALSE, 0);
+  gtk_widget_set_sensitive(self->priv->undo_button, FALSE);
+
+  self->priv->redo_button = gtk_button_new_from_stock(GTK_STOCK_REDO);
+  gtk_widget_set_sensitive(self->priv->redo_button, FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox), self->priv->redo_button, FALSE, FALSE, 0);
+
+  self->priv->clear_button = gtk_button_new_from_stock(GTK_STOCK_CLEAR);
+  gtk_widget_set_sensitive(self->priv->clear_button, FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox), self->priv->clear_button, FALSE, FALSE, 0);
+
+  gtk_box_pack_start(GTK_BOX(self), hbox, FALSE, FALSE, 0);
+  gtk_widget_show_all(hbox);
+  gtk_widget_hide(self->priv->clear_button);
+
+  /* paned */
   paned = gtk_hpaned_new();
 
   /* first pane: undo list */
@@ -257,4 +275,12 @@ static void claws_mail_undo_view_init(ClawsMailUndoView *self)
 GtkWidget* claws_mail_undo_view_new(ClawsMailUndo *undo)
 {
   return g_object_new(CLAWS_MAIL_TYPE_UNDO_VIEW, "undo", undo, NULL);
+}
+
+void claws_mail_undo_view_show_clear_button(ClawsMailUndoView *view, gboolean show)
+{
+  if(show)
+    gtk_widget_show(view->priv->clear_button);
+  else
+    gtk_widget_hide(view->priv->clear_button);
 }
