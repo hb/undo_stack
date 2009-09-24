@@ -316,7 +316,7 @@ ClawsMailUndo * claws_mail_undo_new(void)
   return g_object_new(CLAWS_MAIL_TYPE_UNDO, NULL);
 }
 
-void claws_mail_undo_register_set(ClawsMailUndo *undo, const char *name, ClawsMailUndoSet *set)
+void claws_mail_undo_register_set(ClawsMailUndo *undo, const char *name, const ClawsMailUndoSet *set)
 {
   ClawsMailUndoSet *val;
 
@@ -770,4 +770,10 @@ const gchar* claws_mail_undo_get_top_redo_description(ClawsMailUndo *undo)
     return get_entry_description(undo->redo_stack->data);
   else
     return NULL;
+}
+
+gboolean claws_mail_undo_is_in_group(ClawsMailUndo *undo)
+{
+  g_return_val_if_fail(CLAWS_MAIL_IS_UNDO(undo), FALSE);
+  return (undo->current_group_descriptions != NULL);
 }

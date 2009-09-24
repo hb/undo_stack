@@ -279,6 +279,8 @@ GtkWidget* claws_mail_undo_view_new(ClawsMailUndo *undo)
 
 void claws_mail_undo_view_show_clear_button(ClawsMailUndoView *view, gboolean show)
 {
+  g_return_if_fail(CLAWS_MAIL_IS_UNDO_VIEW(view));
+
   if(show)
     gtk_widget_show(view->priv->clear_button);
   else

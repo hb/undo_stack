@@ -72,7 +72,7 @@ struct _ClawsMailUndoSet {
 
 /* API */
 ClawsMailUndo *claws_mail_undo_new(void);
-void claws_mail_undo_register_set(ClawsMailUndo *undo, const char *name, ClawsMailUndoSet *set);
+void claws_mail_undo_register_set(ClawsMailUndo *undo, const char *set_name, const ClawsMailUndoSet *set);
 void claws_mail_undo_add(ClawsMailUndo *undo, const char *set_name, gpointer data, const gchar *description);
 void claws_mail_undo_clear(ClawsMailUndo *undo);
 void claws_mail_undo_set_maxlen(ClawsMailUndo *undo, gint maxlen);
@@ -87,6 +87,7 @@ void claws_mail_undo_start_group(ClawsMailUndo *undo, gchar *description);
 void claws_mail_undo_end_group(ClawsMailUndo *undo);
 const gchar* claws_mail_undo_get_top_undo_description(ClawsMailUndo *undo);
 const gchar* claws_mail_undo_get_top_redo_description(ClawsMailUndo *undo);
+gboolean claws_mail_undo_is_in_group(ClawsMailUndo *undo);
 
 G_END_DECLS
 
